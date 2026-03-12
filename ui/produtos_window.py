@@ -21,7 +21,7 @@ class ProdutosWindow(tk.Toplevel):
 
         configurar_janela(
             self,
-            largura=1250,
+            largura=1000,
             altura=620,
             titulo="Produtos de Estoque"
         )
@@ -98,18 +98,18 @@ class ProdutosWindow(tk.Toplevel):
         self.tree.pack(fill="both", expand=True)
 
         cols = [
-            ("id", "ID", 60),
-            ("descricao", "Descrição", 240),
-            ("unidade", "Unidade", 90),
-            ("qtde", "Qtde Atual", 100),
-            ("fornecedor", "Fornecedor", 220),
-            ("minimo", "Mínimo", 90),
-            ("localizacao", "Localização", 140),
+            ("id", "ID", 60, "center"),
+            ("descricao", "Descrição", 240, "w"),
+            ("unidade", "Unidade", 90, "center"),
+            ("qtde", "Qtde Atual", 100, "center"),
+            ("fornecedor", "Fornecedor", 220, "w"),
+            ("minimo", "Mínimo", 90, "center"),
+            ("localizacao", "Localização", 140, "center"),
         ]
 
-        for c, t, w in cols:
-            self.tree.heading(c, text=t)
-            self.tree.column(c, width=w)
+        for c, t, w, anchor in cols:
+            self.tree.heading(c, text=t, anchor=anchor)
+            self.tree.column(c, width=w, anchor=anchor)
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
 

@@ -331,6 +331,8 @@ def listar_movimentacoes_produto():
             p.descricao,
             p.unidade,
             p.fornecedor,
+            p.qtde_atual,
+            p.estoque_minimo,
             m.tipo,
             m.quantidade,
             c.nome AS colaborador,

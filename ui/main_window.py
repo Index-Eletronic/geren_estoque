@@ -16,8 +16,8 @@ class MainWindow:
 
         configurar_janela(
             self.root,
-            largura=760,
-            altura=420,
+            largura=360,
+            altura=220,
             titulo="Sistema de Estoque"
         )
 

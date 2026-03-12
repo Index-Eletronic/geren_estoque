@@ -11,7 +11,7 @@ class UsuariosWindow(tk.Toplevel):
         self.master = master
         configurar_janela(
             self,
-            largura=800,
+            largura=600,
             altura=450,
             titulo="Usuários"
         )
@@ -22,24 +22,24 @@ class UsuariosWindow(tk.Toplevel):
         form.pack(fill="x", padx=10, pady=10)
 
         ttk.Label(form, text="Nome").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.nome = ttk.Entry(form, width=30)
+        self.nome = ttk.Entry(form, width=20)
         self.nome.grid(row=0, column=1, padx=5, pady=5)
 
         ttk.Label(form, text="Usuário").grid(row=0, column=2, padx=5, pady=5, sticky="w")
-        self.usuario = ttk.Entry(form, width=20)
+        self.usuario = ttk.Entry(form, width=16)
         self.usuario.grid(row=0, column=3, padx=5, pady=5)
 
         ttk.Label(form, text="Senha").grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        self.senha = ttk.Entry(form, width=20)
+        self.senha = ttk.Entry(form, width=16)
         self.senha.grid(row=1, column=1, padx=5, pady=5)
 
         ttk.Label(form, text="Nível").grid(row=1, column=2, padx=5, pady=5, sticky="w")
-        self.nivel = ttk.Combobox(form, values=["admin", "usuario"], state="readonly", width=18)
+        self.nivel = ttk.Combobox(form, values=["admin", "usuario"], state="readonly", width=14)
         self.nivel.grid(row=1, column=3, padx=5, pady=5)
         self.nivel.set("usuario")
 
         ttk.Label(form, text="Ativo").grid(row=2, column=0, padx=5, pady=5, sticky="w")
-        self.ativo = ttk.Combobox(form, values=["1", "0"], state="readonly", width=18)
+        self.ativo = ttk.Combobox(form, values=["1", "0"], state="readonly", width=14)
         self.ativo.grid(row=2, column=1, padx=5, pady=5)
         self.ativo.set("1")
 
@@ -49,15 +49,17 @@ class UsuariosWindow(tk.Toplevel):
         self.tree = ttk.Treeview(self, columns=("id", "nome", "usuario", "nivel", "ativo"), show="headings")
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-        for col, txt, w in [
-            ("id", "ID", 60),
-            ("nome", "Nome", 220),
-            ("usuario", "Usuário", 150),
-            ("nivel", "Nível", 100),
-            ("ativo", "Ativo", 80)
-        ]:
-            self.tree.heading(col, text=txt)
-            self.tree.column(col, width=w)
+        configuracao_colunas = [
+            ("id", "ID", 40, "center"),
+            ("nome", "Nome", 180, "w"),
+            ("usuario", "Usuário", 120, "w"),
+            ("nivel", "Nível", 80, "center"),
+            ("ativo", "Ativo", 50, "center"),
+        ]
+
+        for col, txt, width, anchor in configuracao_colunas:
+            self.tree.heading(col, text=txt, anchor=anchor)
+            self.tree.column(col, width=width, anchor=anchor)
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
         self.carregar()

@@ -11,7 +11,7 @@ class LoginWindow:
         self.root = root
         configurar_janela(
             self.root,
-            largura=350,
+            largura=250,
             altura=220,
             titulo="Login - Controle de Estoque"
         )
@@ -29,6 +29,14 @@ class LoginWindow:
 
         ttk.Button(frame, text="Entrar", command=self.entrar).pack(fill="x", pady=15)
         ttk.Label(frame, text="Admin inicial: admin / 1234").pack(anchor="center", pady=10)
+
+        self.entry_usuario.bind("<Return>", self.entrar_evento)
+        self.entry_senha.bind("<Return>", self.entrar_evento)
+
+        self.entry_usuario.focus_set()
+
+    def entrar_evento(self, event):
+        self.entrar()
 
     def entrar(self):
         usuario = self.entry_usuario.get().strip()

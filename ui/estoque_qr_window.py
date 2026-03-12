@@ -4,7 +4,6 @@ from tkinter import ttk, messagebox
 from db_estoque import (
     listar_produtos,
     buscar_produto_por_id_texto,
-    atualizar_produto,
     registrar_movimentacao_produto,
     listar_colaboradores_ativos
 )
@@ -20,7 +19,7 @@ class EstoqueQRWindow(tk.Toplevel):
 
         configurar_janela(
             self,
-            largura=1200,
+            largura=1000,
             altura=580,
             titulo="Estoque por ID"
         )
@@ -37,34 +36,12 @@ class EstoqueQRWindow(tk.Toplevel):
         info = ttk.LabelFrame(self, text="Dados do item")
         info.pack(fill="x", padx=10, pady=5)
 
-        self.lbl_info = ttk.Label(info, text="Nenhum item carregado.")
+        self.lbl_info = ttk.Label(
+            info,
+            text="Nenhum item carregado.",
+            font=("Arial", 12, "bold")
+        )
         self.lbl_info.pack(anchor="w", padx=10, pady=10)
-
-        edit = ttk.LabelFrame(self, text="Configuração do estoque")
-        edit.pack(fill="x", padx=10, pady=5)
-
-        ttk.Label(edit, text="Estoque mínimo").grid(row=0, column=0, padx=5, pady=5)
-        self.estoque_minimo = ttk.Entry(edit, width=12)
-        self.estoque_minimo.grid(row=0, column=1, padx=5, pady=5)
-
-        ttk.Label(edit, text="Unidade").grid(row=0, column=2, padx=5, pady=5)
-        self.unidade = ttk.Entry(edit, width=12)
-        self.unidade.grid(row=0, column=3, padx=5, pady=5)
-
-        ttk.Label(edit, text="Localização").grid(row=0, column=4, padx=5, pady=5)
-        self.localizacao = ttk.Entry(edit, width=20)
-        self.localizacao.grid(row=0, column=5, padx=5, pady=5)
-
-        ttk.Label(edit, text="Observação").grid(row=1, column=0, padx=5, pady=5)
-        self.observacao = ttk.Entry(edit, width=50)
-        self.observacao.grid(row=1, column=1, columnspan=3, padx=5, pady=5, sticky="we")
-
-        ttk.Label(edit, text="Ativo").grid(row=1, column=4, padx=5, pady=5)
-        self.ativo = ttk.Combobox(edit, values=["1", "0"], state="readonly", width=10)
-        self.ativo.grid(row=1, column=5, padx=5, pady=5)
-        self.ativo.set("1")
-
-        ttk.Button(edit, text="Salvar dados", command=self.salvar_item).grid(row=2, column=0, padx=5, pady=10)
 
         mov = ttk.LabelFrame(self, text="Movimentação")
         mov.pack(fill="x", padx=10, pady=5)
@@ -99,18 +76,18 @@ class EstoqueQRWindow(tk.Toplevel):
         self.tree.pack(fill="both", expand=True)
 
         cols = [
-            ("id", "ID", 60),
-            ("descricao", "Descrição", 240),
-            ("unidade", "Unidade", 90),
-            ("qtde", "Qtde Atual", 100),
-            ("fornecedor", "Fornecedor", 220),
-            ("minimo", "Mínimo", 90),
-            ("localizacao", "Localização", 140),
+            ("id", "ID", 60, "center"),
+            ("descricao", "Descrição", 240, "w"),
+            ("unidade", "Unidade", 90, "center"),
+            ("qtde", "Qtde Atual", 100, "center"),
+            ("fornecedor", "Fornecedor", 220, "w"),
+            ("minimo", "Mínimo", 90, "center"),
+            ("localizacao", "Localização", 140, "center"),
         ]
 
-        for c, t, w in cols:
-            self.tree.heading(c, text=t)
-            self.tree.column(c, width=w)
+        for c, t, w, anchor in cols:
+            self.tree.heading(c, text=t, anchor=anchor)
+            self.tree.column(c, width=w, anchor=anchor)
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
 
@@ -163,43 +140,6 @@ class EstoqueQRWindow(tk.Toplevel):
 
     def preencher_item(self, item):
         self.item_id = int(item["id"])
-
-        self.estoque_minimo.delete(0, "end")
-        self.estoque_minimo.insert(0, str(item["estoque_minimo"]))
-
-        self.unidade.delete(0, "end")
-        self.unidade.insert(0, item["unidade"] or "")
-
-        self.localizacao.delete(0, "end")
-        self.localizacao.insert(0, item["localizacao"] or "")
-
-        self.observacao.delete(0, "end")
-        self.observacao.insert(0, item["observacao"] or "")
-
-        self.ativo.set(str(item["ativo"]))
-
-    def salvar_item(self):
-        if self.item_id is None:
-            messagebox.showwarning("Atenção", "Carregue um item primeiro.")
-            return
-
-        try:
-            item = buscar_produto_por_id_texto(self.item_id)
-            atualizar_produto(
-                produto_id=self.item_id,
-                descricao=item["descricao"],
-                unidade=self.unidade.get().strip(),
-                fornecedor=item["fornecedor"] or "",
-                estoque_minimo=float(self.estoque_minimo.get() or 0),
-                localizacao=self.localizacao.get().strip(),
-                observacao=self.observacao.get().strip(),
-                ativo=int(self.ativo.get())
-            )
-            messagebox.showinfo("Sucesso", "Item atualizado.")
-            self.buscar_codigo()
-            self.carregar_tabela()
-        except Exception as e:
-            messagebox.showerror("Erro", str(e))
 
     def movimentar(self):
         if self.item_id is None:
