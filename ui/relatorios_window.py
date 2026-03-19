@@ -1,3 +1,6 @@
+import os
+import tempfile
+import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
@@ -34,6 +37,7 @@ class RelatoriosWindow(tk.Toplevel):
         ttk.Button(topo, text="Exportar Produtos", command=self.exp_prod).pack(side="left", padx=15)
         ttk.Button(topo, text="Exportar Mov. Produtos", command=self.exp_mov_prod).pack(side="left", padx=5)
         ttk.Button(topo, text="Exportar Produtos Baixo", command=self.exp_prod_baixo).pack(side="left", padx=5)
+        ttk.Button(topo, text="Visualizar / Imprimir", command=self.visualizar_impressao).pack(side="left", padx=20)
 
         resumo = ttk.Frame(self)
         resumo.pack(fill="x", padx=10, pady=5)
@@ -45,22 +49,29 @@ class RelatoriosWindow(tk.Toplevel):
 
         self.tree_prod = ttk.Treeview(
             self,
-            columns=("produto_id", "descricao", "unidade", "fornecedor", "tipo", "saldo", "colaborador", "usuario", "data", "obs"),
+            columns=(
+                "produto_id", "descricao", "unidade", "fornecedor",
+                "tipo", "minimo", "saldo", "total", "ultima_compra",
+                "colaborador", "usuario", "data", "obs"
+            ),
             show="headings"
         )
         self.tree_prod.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.cols_prod = [
-            ("produto_id", "Id Produto", "center", 0.07),
-            ("descricao", "Descrição", "w", 0.20),
-            ("unidade", "Unidade", "center", 0.07),
-            ("fornecedor", "Fornecedor", "w", 0.15),
-            ("tipo", "Tipo", "center", 0.08),
-            ("saldo", "Saldo", "center", 0.08),
-            ("colaborador", "Colaborador", "w", 0.11),
-            ("usuario", "Usuário", "w", 0.11),
-            ("data", "Data", "center", 0.08),
-            ("obs", "Observação", "w", 0.15),
+            ("produto_id", "Id Produto", "center", 0.05),
+            ("descricao", "Descrição", "w", 0.15),
+            ("unidade", "Unidade", "center", 0.06),
+            ("fornecedor", "Fornecedor", "w", 0.11),
+            ("tipo", "Tipo", "center", 0.06),
+            ("minimo", "Mínimo", "center", 0.06),
+            ("saldo", "Saldo", "center", 0.06),
+            ("total", "Total", "center", 0.06),
+            ("ultima_compra", "Última Compra", "center", 0.08),
+            ("colaborador", "Colaborador", "w", 0.09),
+            ("usuario", "Usuário", "w", 0.09),
+            ("data", "Data", "center", 0.07),
+            ("obs", "Observação", "w", 0.10),
         ]
 
         for col, txt, anchor, _peso in self.cols_prod:
@@ -114,6 +125,8 @@ class RelatoriosWindow(tk.Toplevel):
             qtde_atual = float(row["qtde_atual"] or 0)
             estoque_minimo = float(row["estoque_minimo"] or 0)
             saldo = qtde_atual - estoque_minimo
+            total = qtde_atual
+            ultima_compra = float(row["qtde_inicial"] or 0)
 
             tags = ()
             if saldo <= 0:
@@ -128,7 +141,10 @@ class RelatoriosWindow(tk.Toplevel):
                     row["unidade"],
                     row["fornecedor"],
                     row["tipo"],
+                    estoque_minimo,
                     saldo,
+                    total,
+                    ultima_compra,
                     row["colaborador"],
                     row["usuario"],
                     self._formatar_data(row["data_movimentacao"]),
@@ -136,6 +152,142 @@ class RelatoriosWindow(tk.Toplevel):
                 ),
                 tags=tags
             )
+
+    def _saldo_baixo(self, valor):
+        try:
+            return float(str(valor).replace(",", ".")) <= 0
+        except Exception:
+            return False
+
+    def _montar_html_relatorio(self):
+        linhas = []
+        for item_id in self.tree_prod.get_children():
+            valores = self.tree_prod.item(item_id, "values")
+            saldo_val = str(valores[6])
+            classe_saldo = "saldo-baixo" if self._saldo_baixo(saldo_val) else ""
+
+            linhas.append(f"""
+            <tr>
+                <td class="center">{valores[0]}</td>
+                <td>{valores[1]}</td>
+                <td class="center">{valores[2]}</td>
+                <td>{valores[3]}</td>
+                <td class="center">{valores[4]}</td>
+                <td class="center">{valores[5]}</td>
+                <td class="center {classe_saldo}">{valores[6]}</td>
+                <td class="center">{valores[7]}</td>
+                <td class="center">{valores[8]}</td>
+                <td>{valores[9] or ""}</td>
+                <td>{valores[10] or ""}</td>
+                <td class="center">{valores[11]}</td>
+                <td>{valores[12] or ""}</td>
+            </tr>
+            """)
+
+        html = f"""
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Relatório de Movimentações</title>
+<style>
+    @page {{
+        size: A4 portrait;
+        margin: 10mm;
+    }}
+
+    body {{
+        font-family: Arial, sans-serif;
+        font-size: 9px;
+        color: #000;
+        margin: 0;
+        padding: 0;
+    }}
+
+    h1 {{
+        font-size: 16px;
+        text-align: center;
+        margin: 0 0 10px 0;
+    }}
+
+    .resumo {{
+        margin-bottom: 10px;
+        font-size: 11px;
+    }}
+
+    table {{
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }}
+
+    th, td {{
+        border: 1px solid #444;
+        padding: 4px;
+        vertical-align: middle;
+        word-wrap: break-word;
+    }}
+
+    th {{
+        background: #f0f0f0;
+        font-weight: bold;
+    }}
+
+    .center {{
+        text-align: center;
+    }}
+
+    .saldo-baixo {{
+        color: red;
+        font-weight: bold;
+    }}
+</style>
+</head>
+<body>
+    <h1>Relatório de Movimentações de Produtos</h1>
+    <div class="resumo">Produtos abaixo do mínimo: {len(listar_produtos_baixo())}</div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 4%;">ID</th>
+                <th style="width: 14%;">Descrição</th>
+                <th style="width: 5%;">Unid</th>
+                <th style="width: 10%;">Fornecedor</th>
+                <th style="width: 6%;">Tipo</th>
+                <th style="width: 6%;">Mínimo</th>
+                <th style="width: 6%;">Saldo</th>
+                <th style="width: 6%;">Total</th>
+                <th style="width: 8%;">Última Compra</th>
+                <th style="width: 9%;">Colaborador</th>
+                <th style="width: 9%;">Usuário</th>
+                <th style="width: 7%;">Data</th>
+                <th style="width: 10%;">Observação</th>
+            </tr>
+        </thead>
+        <tbody>
+            {''.join(linhas)}
+        </tbody>
+    </table>
+</body>
+</html>
+"""
+        return html
+
+    def visualizar_impressao(self):
+        try:
+            html = self._montar_html_relatorio()
+            arquivo_temp = os.path.join(tempfile.gettempdir(), "relatorio_movimentacoes_produtos.html")
+            with open(arquivo_temp, "w", encoding="utf-8") as f:
+                f.write(html)
+
+            webbrowser.open(f"file:///{arquivo_temp.replace(os.sep, '/')}")
+            messagebox.showinfo(
+                "Visualização",
+                "Relatório aberto no navegador.\nUse Ctrl+P para imprimir em A4 vertical."
+            )
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível abrir a visualização.\n{e}")
 
     def exp_prod(self):
         try:

@@ -34,7 +34,12 @@ class UsuariosWindow(tk.Toplevel):
         self.senha.grid(row=1, column=1, padx=5, pady=5)
 
         ttk.Label(form, text="Nível").grid(row=1, column=2, padx=5, pady=5, sticky="w")
-        self.nivel = ttk.Combobox(form, values=["admin", "usuario"], state="readonly", width=14)
+        self.nivel = ttk.Combobox(
+            form,
+            values=["admin", "usuario"],
+            state="readonly",
+            width=14
+        )
         self.nivel.grid(row=1, column=3, padx=5, pady=5)
         self.nivel.set("usuario")
 
@@ -69,8 +74,10 @@ class UsuariosWindow(tk.Toplevel):
             self.tree.delete(i)
 
         for row in listar_usuarios():
+            if row["nivel"] not in ("admin", "usuario"):
+                continue
             self.tree.insert("", "end", values=(
-                row["id"], row["nome"], row["usuario"], row["nivel"], row["ativo"]
+                row["id"], row["nome"], row["usuario"] or "", row["nivel"], row["ativo"]
             ))
 
     def novo(self):

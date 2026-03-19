@@ -13,14 +13,22 @@ def exportar_produtos_excel(nome_arquivo="relatorio_produtos.xlsx"):
     ws.title = "Produtos"
 
     ws.append([
-        "ID", "Descricao", "Unidade", "Qtde Atual", "Fornecedor",
-        "Estoque Minimo", "Localizacao", "Observacao"
+        "ID", "Data", "Descricao", "Unidade", "Qtde Inicial", "Qtde Atual",
+        "Fornecedor", "Estoque Minimo", "Localizacao", "Observacao"
     ])
 
     for r in rows:
         ws.append([
-            r["id"], r["descricao"], r["unidade"], r["qtde_atual"], r["fornecedor"],
-            r["estoque_minimo"], r["localizacao"], r["observacao"]
+            r["id"],
+            r["data_cadastro"],
+            r["descricao"],
+            r["unidade"],
+            r["qtde_inicial"],
+            r["qtde_atual"],
+            r["fornecedor"],
+            r["estoque_minimo"],
+            r["localizacao"],
+            r["observacao"]
         ])
 
     wb.save(nome_arquivo)
@@ -34,14 +42,32 @@ def exportar_movimentacoes_produto_excel(nome_arquivo="relatorio_movimentacoes_p
 
     ws.append([
         "ID Mov", "Produto ID", "Descricao", "Unidade", "Fornecedor",
-        "Tipo", "Quantidade", "Colaborador", "Usuario", "Data", "Observacao"
+        "Tipo", "Minimo", "Saldo", "Total", "Ultima Compra",
+        "Colaborador", "Usuario", "Data", "Observacao"
     ])
 
     for r in rows:
+        qtde_atual = float(r["qtde_atual"] or 0)
+        estoque_minimo = float(r["estoque_minimo"] or 0)
+        saldo = qtde_atual - estoque_minimo
+        total = qtde_atual
+        ultima_compra = float(r["qtde_inicial"] or 0)
+
         ws.append([
-            r["id"], r["produto_id"], r["descricao"], r["unidade"], r["fornecedor"],
-            r["tipo"], r["quantidade"], r["colaborador"], r["usuario"],
-            r["data_movimentacao"], r["observacao"]
+            r["id"],
+            r["produto_id"],
+            r["descricao"],
+            r["unidade"],
+            r["fornecedor"],
+            r["tipo"],
+            estoque_minimo,
+            saldo,
+            total,
+            ultima_compra,
+            r["colaborador"],
+            r["usuario"],
+            r["data_movimentacao"],
+            r["observacao"]
         ])
 
     wb.save(nome_arquivo)
@@ -54,12 +80,17 @@ def exportar_produtos_baixo_excel(nome_arquivo="relatorio_produtos_baixo.xlsx"):
     ws.title = "Produtos Baixo"
 
     ws.append([
-        "ID", "Descricao", "Qtde Atual", "Estoque Minimo", "Fornecedor"
+        "ID", "Descricao", "Qtde Inicial", "Qtde Atual", "Estoque Minimo", "Fornecedor"
     ])
 
     for r in rows:
         ws.append([
-            r["id"], r["descricao"], r["qtde_atual"], r["estoque_minimo"], r["fornecedor"]
+            r["id"],
+            r["descricao"],
+            r["qtde_inicial"],
+            r["qtde_atual"],
+            r["estoque_minimo"],
+            r["fornecedor"]
         ])
 
     wb.save(nome_arquivo)

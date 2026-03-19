@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from auth import login
-from ui.main_window import MainWindow
 from ui.utils_ui import configurar_janela
 
 
@@ -46,6 +45,8 @@ class LoginWindow:
         if not user:
             messagebox.showerror("Erro", "Usuário ou senha inválidos.")
             return
+
+        from ui.main_window import MainWindow
 
         self.root.destroy()
 

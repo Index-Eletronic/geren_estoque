@@ -37,8 +37,6 @@ def abrir_filha(master, janela_cls, *args, **kwargs):
 
         try:
             master.deiconify()
-            master.lift()
-            master.focus_force()
         except Exception:
             pass
 

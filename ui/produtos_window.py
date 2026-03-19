@@ -1,15 +1,15 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from datetime import datetime
 
 from db_estoque import (
-    listar_produtos,
-    inserir_produto,
-    atualizar_produto,
+    buscar_produtos,
     buscar_produto_por_id,
     registrar_movimentacao_produto,
     listar_colaboradores_ativos
 )
-from ui.utils_ui import configurar_janela
+from ui.utils_ui import configurar_janela, abrir_filha
+from ui.cadastro_produtos_window import CadastroProdutosWindow
 
 
 class ProdutosWindow(tk.Toplevel):
@@ -18,93 +18,84 @@ class ProdutosWindow(tk.Toplevel):
         self.master = master
         self.usuario_logado = usuario_logado
         self.produto_id = None
+        self.colab_map = {}
 
         configurar_janela(
             self,
-            largura=1000,
-            altura=620,
-            titulo="Produtos de Estoque"
+            largura=1300,
+            altura=680,
+            titulo="Movimentação do Produto"
         )
 
-        form = ttk.LabelFrame(self, text="Cadastro de Produto")
-        form.pack(fill="x", padx=10, pady=10)
-
-        ttk.Label(form, text="Descrição").grid(row=0, column=0, padx=5, pady=5)
-        self.descricao = ttk.Entry(form, width=30)
-        self.descricao.grid(row=0, column=1, padx=5, pady=5)
-
-        ttk.Label(form, text="Unidade").grid(row=0, column=2, padx=5, pady=5)
-        self.unidade = ttk.Entry(form, width=12)
-        self.unidade.grid(row=0, column=3, padx=5, pady=5)
-
-        ttk.Label(form, text="Qtde Inicial").grid(row=0, column=4, padx=5, pady=5)
-        self.qtde_inicial = ttk.Entry(form, width=12)
-        self.qtde_inicial.grid(row=0, column=5, padx=5, pady=5)
-
-        ttk.Label(form, text="Fornecedor").grid(row=1, column=0, padx=5, pady=5)
-        self.fornecedor = ttk.Entry(form, width=30)
-        self.fornecedor.grid(row=1, column=1, padx=5, pady=5)
-
-        ttk.Label(form, text="Estoque Mínimo").grid(row=1, column=2, padx=5, pady=5)
-        self.estoque_minimo = ttk.Entry(form, width=12)
-        self.estoque_minimo.grid(row=1, column=3, padx=5, pady=5)
-
-        ttk.Label(form, text="Localização").grid(row=1, column=4, padx=5, pady=5)
-        self.localizacao = ttk.Entry(form, width=20)
-        self.localizacao.grid(row=1, column=5, padx=5, pady=5)
-
-        ttk.Label(form, text="Observação").grid(row=2, column=0, padx=5, pady=5)
-        self.observacao = ttk.Entry(form, width=50)
-        self.observacao.grid(row=2, column=1, columnspan=3, padx=5, pady=5, sticky="we")
-
-        ttk.Label(form, text="Ativo").grid(row=2, column=4, padx=5, pady=5)
-        self.ativo = ttk.Combobox(form, values=["1", "0"], state="readonly", width=10)
-        self.ativo.grid(row=2, column=5, padx=5, pady=5)
-        self.ativo.set("1")
-
-        ttk.Button(form, text="Novo", command=self.novo).grid(row=3, column=0, padx=5, pady=10)
-        ttk.Button(form, text="Salvar Cadastro", command=self.salvar).grid(row=3, column=1, padx=5, pady=10)
-
         mov = ttk.LabelFrame(self, text="Movimentação do Produto")
-        mov.pack(fill="x", padx=10, pady=5)
+        mov.pack(fill="x", padx=10, pady=10)
 
-        ttk.Label(mov, text="Tipo").grid(row=0, column=0, padx=5, pady=5)
-        self.tipo = ttk.Combobox(mov, values=["ENTRADA", "SAIDA", "AJUSTE"], state="readonly", width=12)
-        self.tipo.grid(row=0, column=1, padx=5, pady=5)
-        self.tipo.set("ENTRADA")
+        ttk.Label(mov, text="Data").grid(row=0, column=0, padx=5, pady=5)
+        self.data_mov = ttk.Entry(mov, width=14)
+        self.data_mov.grid(row=0, column=1, padx=5, pady=5)
+        self.data_mov.insert(0, datetime.now().strftime("%d/%m/%Y"))
 
-        ttk.Label(mov, text="Quantidade").grid(row=0, column=2, padx=5, pady=5)
-        self.quantidade = ttk.Entry(mov, width=12)
-        self.quantidade.grid(row=0, column=3, padx=5, pady=5)
+        ttk.Label(mov, text="Tipo").grid(row=0, column=2, padx=5, pady=5)
+        self.tipo = ttk.Combobox(mov, values=["ENTRADA", "SAIDA", "AJUSTE"], state="disabled", width=12)
+        self.tipo.grid(row=0, column=3, padx=5, pady=5)
 
-        ttk.Label(mov, text="Colaborador").grid(row=0, column=4, padx=5, pady=5)
-        self.colaborador = ttk.Combobox(mov, state="readonly", width=25)
-        self.colaborador.grid(row=0, column=5, padx=5, pady=5)
+        ttk.Label(mov, text="Quantidade").grid(row=0, column=4, padx=5, pady=5)
+        self.quantidade = ttk.Entry(mov, width=12, state="disabled")
+        self.quantidade.grid(row=0, column=5, padx=5, pady=5)
 
-        ttk.Label(mov, text="Obs").grid(row=1, column=0, padx=5, pady=5)
-        self.mov_obs = ttk.Entry(mov, width=50)
-        self.mov_obs.grid(row=1, column=1, columnspan=4, padx=5, pady=5, sticky="we")
+        ttk.Label(mov, text="Colaborador").grid(row=1, column=0, padx=5, pady=5)
+        self.colaborador = ttk.Combobox(mov, state="disabled", width=25)
+        self.colaborador.grid(row=1, column=1, padx=5, pady=5)
 
-        ttk.Button(mov, text="Registrar Movimentação", command=self.movimentar).grid(row=1, column=5, padx=5, pady=5)
+        ttk.Label(mov, text="Obs").grid(row=1, column=2, padx=5, pady=5)
+        self.mov_obs = ttk.Entry(mov, width=45, state="disabled")
+        self.mov_obs.grid(row=1, column=3, columnspan=2, padx=5, pady=5, sticky="we")
 
-        tabela = ttk.LabelFrame(self, text="Produtos cadastrados")
+        self.btn_mov = ttk.Button(mov, text="Registrar Movimentação", command=self.movimentar, state="disabled")
+        self.btn_mov.grid(row=1, column=5, padx=5, pady=5)
+
+        ttk.Button(mov, text="Cadastro de Produtos", command=self.abrir_cadastro_produtos).grid(row=1, column=6, padx=5, pady=5)
+
+        busca = ttk.LabelFrame(self, text="Pesquisar Produto")
+        busca.pack(fill="x", padx=10, pady=5)
+
+        ttk.Label(busca, text="Pesquisar por ID, Nome ou Fornecedor").grid(row=0, column=0, padx=5, pady=5)
+        self.filtro = ttk.Entry(busca, width=20)
+        self.filtro.grid(row=0, column=1, padx=5, pady=5)
+        self.filtro.bind("<Return>", lambda e: self.pesquisar())
+        self.filtro.bind("<KeyRelease>", self.on_filtro_change)
+
+        ttk.Button(busca, text="Pesquisar", command=self.pesquisar).grid(row=0, column=2, padx=5, pady=5)
+
+        info = ttk.LabelFrame(self, text="Produto selecionado")
+        info.pack(fill="x", padx=10, pady=5)
+
+        self.lbl_info = ttk.Label(
+            info,
+            text="Nenhum produto selecionado.",
+            font=("Arial", 12, "bold")
+        )
+        self.lbl_info.pack(anchor="w", padx=10, pady=10)
+
+        tabela = ttk.LabelFrame(self, text="Produtos")
         tabela.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.tree = ttk.Treeview(
             tabela,
-            columns=("id", "descricao", "unidade", "qtde", "fornecedor", "minimo", "localizacao"),
+            columns=("id", "data", "descricao", "unidade", "qtde", "fornecedor", "minimo", "localizacao"),
             show="headings"
         )
         self.tree.pack(fill="both", expand=True)
 
         cols = [
             ("id", "ID", 60, "center"),
-            ("descricao", "Descrição", 240, "w"),
+            ("data", "Data", 96, "center"),
+            ("descricao", "Descrição", 280, "w"),
             ("unidade", "Unidade", 90, "center"),
             ("qtde", "Qtde Atual", 100, "center"),
-            ("fornecedor", "Fornecedor", 220, "w"),
+            ("fornecedor", "Fornecedor", 200, "w"),
             ("minimo", "Mínimo", 90, "center"),
-            ("localizacao", "Localização", 140, "center"),
+            ("localizacao", "Localização", 120, "center"),
         ]
 
         for c, t, w, anchor in cols:
@@ -112,24 +103,60 @@ class ProdutosWindow(tk.Toplevel):
             self.tree.column(c, width=w, anchor=anchor)
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
+        self.bind("<FocusIn>", self._ao_receber_foco)
 
         self.carregar_colaboradores()
-        self.carregar_tabela()
+        self.pesquisar()
+
+    def _data_para_bd(self, data_str):
+        try:
+            return datetime.strptime(data_str.strip(), "%d/%m/%Y").strftime("%Y-%m-%d")
+        except Exception:
+            raise ValueError("Data inválida. Use dd/mm/aaaa.")
+
+    def _data_para_tela(self, data_str):
+        if not data_str:
+            return ""
+        try:
+            return datetime.strptime(data_str[:10], "%Y-%m-%d").strftime("%d/%m/%Y")
+        except Exception:
+            return data_str
+
+    def _ao_receber_foco(self, event=None):
+        self.carregar_colaboradores()
+        self.pesquisar()
+
+    def abrir_cadastro_produtos(self):
+        abrir_filha(self, CadastroProdutosWindow)
 
     def carregar_colaboradores(self):
-        colaboradores = listar_colaboradores_ativos()
-        self.colab_map = {f'{c["id"]} - {c["nome"]}': c["id"] for c in colaboradores}
-        self.colaborador["values"] = list(self.colab_map.keys())
-        if colaboradores:
-            self.colaborador.current(0)
+        try:
+            colaboradores = listar_colaboradores_ativos()
+            self.colab_map = {f'{c["id"]} - {c["nome"]}': c["id"] for c in colaboradores}
+            self.colaborador["values"] = list(self.colab_map.keys())
 
-    def carregar_tabela(self):
+            if colaboradores:
+                self.colaborador.current(0)
+            else:
+                self.colaborador.set("")
+        except Exception as e:
+            self.colab_map = {}
+            self.colaborador["values"] = []
+            self.colaborador.set("")
+            messagebox.showerror("Erro", f"Não foi possível carregar colaboradores.\n\n{e}")
+
+    def on_filtro_change(self, event=None):
+        if not self.filtro.get().strip():
+            self.pesquisar()
+
+    def pesquisar(self):
         for i in self.tree.get_children():
             self.tree.delete(i)
 
-        for row in listar_produtos():
+        for row in buscar_produtos(self.filtro.get()):
             self.tree.insert("", "end", values=(
                 row["id"],
+                self._data_para_tela(row["data_cadastro"]),
                 row["descricao"],
                 row["unidade"],
                 row["qtde_atual"],
@@ -138,75 +165,46 @@ class ProdutosWindow(tk.Toplevel):
                 row["localizacao"]
             ))
 
-    def novo(self):
+        self.desabilitar_movimentacao()
+        self.lbl_info.config(text="Nenhum produto selecionado.")
+
+    def habilitar_movimentacao(self):
+        self.tipo.config(state="readonly")
+        self.tipo.set("ENTRADA")
+        self.quantidade.config(state="normal")
+        self.mov_obs.config(state="normal")
+        self.colaborador.config(state="readonly")
+        self.btn_mov.config(state="normal")
+
+    def desabilitar_movimentacao(self):
         self.produto_id = None
-        self.descricao.delete(0, "end")
-        self.unidade.delete(0, "end")
-        self.qtde_inicial.delete(0, "end")
-        self.fornecedor.delete(0, "end")
-        self.estoque_minimo.delete(0, "end")
-        self.localizacao.delete(0, "end")
-        self.observacao.delete(0, "end")
-        self.ativo.set("1")
-
-    def salvar(self):
-        descricao = self.descricao.get().strip()
-        unidade = self.unidade.get().strip()
-        fornecedor = self.fornecedor.get().strip()
-        qtde_inicial = self.qtde_inicial.get().strip()
-        estoque_minimo = self.estoque_minimo.get().strip()
-        localizacao = self.localizacao.get().strip()
-        observacao = self.observacao.get().strip()
-        ativo = int(self.ativo.get())
-
-        if not descricao or not unidade:
-            messagebox.showwarning("Atenção", "Descrição e unidade são obrigatórios.")
-            return
-
-        try:
-            if self.produto_id is None:
-                inserir_produto(
-                    descricao=descricao,
-                    unidade=unidade,
-                    qtde_atual=float(qtde_inicial or 0),
-                    fornecedor=fornecedor,
-                    estoque_minimo=float(estoque_minimo or 0),
-                    localizacao=localizacao,
-                    observacao=observacao
-                )
-            else:
-                atualizar_produto(
-                    produto_id=self.produto_id,
-                    descricao=descricao,
-                    unidade=unidade,
-                    fornecedor=fornecedor,
-                    estoque_minimo=float(estoque_minimo or 0),
-                    localizacao=localizacao,
-                    observacao=observacao,
-                    ativo=ativo
-                )
-
-            self.carregar_tabela()
-            self.novo()
-            messagebox.showinfo("Sucesso", "Produto salvo.")
-        except Exception as e:
-            messagebox.showerror("Erro", str(e))
+        self.tipo.config(state="disabled")
+        self.quantidade.config(state="disabled")
+        self.mov_obs.config(state="disabled")
+        self.colaborador.config(state="disabled")
+        self.btn_mov.config(state="disabled")
+        self.quantidade.delete(0, "end")
+        self.mov_obs.delete(0, "end")
 
     def movimentar(self):
         if self.produto_id is None:
-            messagebox.showwarning("Atenção", "Selecione ou carregue um produto.")
+            messagebox.showwarning("Atenção", "Selecione um produto.")
             return
 
         tipo = self.tipo.get().strip()
         qtd = self.quantidade.get().strip()
         colaborador_str = self.colaborador.get().strip()
         obs = self.mov_obs.get().strip()
+        data_mov = self._data_para_bd(self.data_mov.get())
 
         if not tipo or not qtd:
             messagebox.showwarning("Atenção", "Informe tipo e quantidade.")
             return
 
         colaborador_id = self.colab_map.get(colaborador_str)
+        if colaborador_id is None:
+            messagebox.showwarning("Atenção", "Selecione um colaborador válido.")
+            return
 
         try:
             registrar_movimentacao_produto(
@@ -215,57 +213,41 @@ class ProdutosWindow(tk.Toplevel):
                 quantidade=float(qtd),
                 colaborador_id=colaborador_id,
                 usuario_id=int(self.usuario_logado["id"]),
-                observacao=obs
+                observacao=obs,
+                data_movimentacao=data_mov
             )
             messagebox.showinfo("Sucesso", "Movimentação registrada.")
             self.quantidade.delete(0, "end")
             self.mov_obs.delete(0, "end")
-            self.recarregar_produto()
-            self.carregar_tabela()
+            self.data_mov.delete(0, "end")
+            self.data_mov.insert(0, datetime.now().strftime("%d/%m/%Y"))
+
+            produto_id_atual = self.produto_id
+            self.pesquisar()
+
+            produto = buscar_produto_por_id(produto_id_atual)
+            if produto:
+                self.selecionar_produto(produto)
         except Exception as e:
             messagebox.showerror("Erro", str(e))
 
-    def recarregar_produto(self):
-        if self.produto_id is None:
-            return
-        row = buscar_produto_por_id(self.produto_id)
-        if row:
-            self.preencher_form(row)
-
-    def preencher_form(self, row):
+    def selecionar_produto(self, row):
         self.produto_id = int(row["id"])
-
-        self.descricao.delete(0, "end")
-        self.descricao.insert(0, row["descricao"])
-
-        self.unidade.delete(0, "end")
-        self.unidade.insert(0, row["unidade"])
-
-        self.qtde_inicial.delete(0, "end")
-        self.qtde_inicial.insert(0, str(row["qtde_atual"]))
-
-        self.fornecedor.delete(0, "end")
-        self.fornecedor.insert(0, row["fornecedor"] or "")
-
-        self.estoque_minimo.delete(0, "end")
-        self.estoque_minimo.insert(0, str(row["estoque_minimo"]))
-
-        self.localizacao.delete(0, "end")
-        self.localizacao.insert(0, row["localizacao"] or "")
-
-        self.observacao.delete(0, "end")
-        self.observacao.insert(0, row["observacao"] or "")
-
-        self.ativo.set(str(row["ativo"]))
+        self.lbl_info.config(
+            text=(
+                f'ID: {row["id"]} | Produto: {row["descricao"]} | '
+                f'Unidade: {row["unidade"]} | Fornecedor: {row["fornecedor"]} | '
+                f'Saldo Atual: {row["qtde_atual"]}'
+            )
+        )
+        self.habilitar_movimentacao()
 
     def on_select(self, event):
         selecionado = self.tree.selection()
         if not selecionado:
             return
 
-        valores = self.tree.item(selecionado[0], "values")
-        produto_id = int(valores[0])
-
+        produto_id = int(self.tree.item(selecionado[0], "values")[0])
         row = buscar_produto_por_id(produto_id)
         if row:
-            self.preencher_form(row)
+            self.selecionar_produto(row)

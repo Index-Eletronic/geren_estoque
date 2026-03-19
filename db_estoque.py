@@ -10,6 +10,42 @@ def get_conn():
     return conn
 
 
+def migrar_tabela_usuarios(cur):
+    cur.execute("PRAGMA table_info(usuarios)")
+    colunas = cur.fetchall()
+
+    precisa_migrar = False
+    for col in colunas:
+        nome_coluna = col[1]
+        notnull = col[3]
+        if nome_coluna == "usuario" and notnull == 1:
+            precisa_migrar = True
+            break
+
+    if not precisa_migrar:
+        return
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS usuarios_novo (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        usuario TEXT UNIQUE,
+        senha TEXT,
+        nivel TEXT NOT NULL CHECK (nivel IN ('admin', 'usuario', 'colaborador')),
+        ativo INTEGER NOT NULL DEFAULT 1
+    )
+    """)
+
+    cur.execute("""
+    INSERT INTO usuarios_novo (id, nome, usuario, senha, nivel, ativo)
+    SELECT id, nome, usuario, senha, nivel, ativo
+    FROM usuarios
+    """)
+
+    cur.execute("DROP TABLE usuarios")
+    cur.execute("ALTER TABLE usuarios_novo RENAME TO usuarios")
+
+
 def criar_tabelas():
     conn = get_conn()
     cur = conn.cursor()
@@ -18,12 +54,14 @@ def criar_tabelas():
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL,
-        usuario TEXT NOT NULL UNIQUE,
-        senha TEXT NOT NULL,
-        nivel TEXT NOT NULL CHECK (nivel IN ('admin', 'usuario')),
+        usuario TEXT UNIQUE,
+        senha TEXT,
+        nivel TEXT NOT NULL CHECK (nivel IN ('admin', 'usuario', 'colaborador')),
         ativo INTEGER NOT NULL DEFAULT 1
     )
     """)
+
+    migrar_tabela_usuarios(cur)
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS colaboradores (
@@ -37,8 +75,10 @@ def criar_tabelas():
     cur.execute("""
     CREATE TABLE IF NOT EXISTS produtos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        data_cadastro TEXT,
         descricao TEXT NOT NULL,
         unidade TEXT NOT NULL,
+        qtde_inicial REAL NOT NULL DEFAULT 0,
         qtde_atual REAL NOT NULL DEFAULT 0,
         fornecedor TEXT,
         estoque_minimo REAL NOT NULL DEFAULT 0,
@@ -64,6 +104,26 @@ def criar_tabelas():
     )
     """)
 
+    try:
+        cur.execute("SELECT data_cadastro FROM produtos LIMIT 1")
+    except sqlite3.OperationalError:
+        cur.execute("ALTER TABLE produtos ADD COLUMN data_cadastro TEXT")
+        cur.execute("""
+            UPDATE produtos
+            SET data_cadastro = ?
+            WHERE data_cadastro IS NULL OR data_cadastro = ''
+        """, (datetime.now().strftime("%Y-%m-%d"),))
+
+    try:
+        cur.execute("SELECT qtde_inicial FROM produtos LIMIT 1")
+    except sqlite3.OperationalError:
+        cur.execute("ALTER TABLE produtos ADD COLUMN qtde_inicial REAL NOT NULL DEFAULT 0")
+        cur.execute("""
+            UPDATE produtos
+            SET qtde_inicial = qtde_atual
+            WHERE qtde_inicial IS NULL
+        """)
+
     conn.commit()
     conn.close()
 
@@ -84,9 +144,6 @@ def criar_admin_padrao():
     conn.close()
 
 
-# -------------------------
-# USUÁRIOS
-# -------------------------
 def autenticar(usuario: str, senha: str):
     conn = get_conn()
     cur = conn.cursor()
@@ -94,6 +151,7 @@ def autenticar(usuario: str, senha: str):
         SELECT *
         FROM usuarios
         WHERE usuario = ? AND senha = ? AND ativo = 1
+          AND nivel IN ('admin', 'usuario')
     """, (usuario, senha))
     row = cur.fetchone()
     conn.close()
@@ -110,6 +168,12 @@ def listar_usuarios():
 
 
 def inserir_usuario(nome, usuario, senha, nivel):
+    if nivel not in ("admin", "usuario"):
+        raise ValueError("Nesta tela só é permitido cadastrar admin e usuário.")
+
+    if not usuario or not senha:
+        raise ValueError("Usuário e senha são obrigatórios.")
+
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
@@ -121,6 +185,12 @@ def inserir_usuario(nome, usuario, senha, nivel):
 
 
 def atualizar_usuario(usuario_id, nome, usuario, senha, nivel, ativo):
+    if nivel not in ("admin", "usuario"):
+        raise ValueError("Nesta tela só é permitido editar admin e usuário.")
+
+    if not usuario or not senha:
+        raise ValueError("Usuário e senha são obrigatórios.")
+
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("""
@@ -132,9 +202,6 @@ def atualizar_usuario(usuario_id, nome, usuario, senha, nivel, ativo):
     conn.close()
 
 
-# -------------------------
-# COLABORADORES
-# -------------------------
 def listar_colaboradores():
     conn = get_conn()
     cur = conn.cursor()
@@ -148,6 +215,20 @@ def listar_colaboradores_ativos():
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("SELECT * FROM colaboradores WHERE ativo = 1 ORDER BY nome")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def listar_usuarios_colaborador_ativos():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT *
+        FROM usuarios
+        WHERE nivel = 'colaborador' AND ativo = 1
+        ORDER BY nome
+    """)
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -176,9 +257,6 @@ def atualizar_colaborador(colaborador_id, nome, funcao, ativo):
     conn.close()
 
 
-# -------------------------
-# PRODUTOS
-# -------------------------
 def listar_produtos():
     conn = get_conn()
     cur = conn.cursor()
@@ -188,6 +266,40 @@ def listar_produtos():
         WHERE ativo = 1
         ORDER BY descricao
     """)
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def buscar_produtos(filtro=""):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    filtro = (filtro or "").strip()
+    if not filtro:
+        cur.execute("""
+            SELECT *
+            FROM produtos
+            WHERE ativo = 1
+            ORDER BY descricao
+        """)
+    elif filtro.isdigit():
+        cur.execute("""
+            SELECT *
+            FROM produtos
+            WHERE ativo = 1
+              AND (id = ? OR descricao LIKE ? OR fornecedor LIKE ?)
+            ORDER BY descricao
+        """, (int(filtro), f"%{filtro}%", f"%{filtro}%"))
+    else:
+        cur.execute("""
+            SELECT *
+            FROM produtos
+            WHERE ativo = 1
+              AND (descricao LIKE ? OR fornecedor LIKE ?)
+            ORDER BY descricao
+        """, (f"%{filtro}%", f"%{filtro}%"))
+
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -234,43 +346,82 @@ def buscar_produto_por_id_texto(produto_id):
     return row
 
 
-def inserir_produto(descricao, unidade, qtde_atual, fornecedor, estoque_minimo=0, localizacao="", observacao=""):
+def inserir_produto(
+    descricao,
+    unidade,
+    qtde_atual,
+    fornecedor,
+    estoque_minimo=0,
+    localizacao="",
+    observacao="",
+    data_cadastro=None
+):
     conn = get_conn()
     cur = conn.cursor()
+    data_final = data_cadastro or datetime.now().strftime("%Y-%m-%d")
+
     cur.execute("""
         INSERT INTO produtos (
-            descricao, unidade, qtde_atual, fornecedor,
+            data_cadastro, descricao, unidade, qtde_inicial, qtde_atual, fornecedor,
             estoque_minimo, localizacao, observacao
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        descricao, unidade, qtde_atual, fornecedor,
+        data_final, descricao, unidade, qtde_atual, qtde_atual, fornecedor,
         estoque_minimo, localizacao, observacao
     ))
     conn.commit()
     conn.close()
 
 
-def atualizar_produto(produto_id, descricao, unidade, fornecedor, estoque_minimo, localizacao, observacao, ativo):
+def atualizar_produto(
+    produto_id,
+    descricao,
+    unidade,
+    fornecedor,
+    estoque_minimo,
+    localizacao,
+    observacao,
+    ativo,
+    data_cadastro=None
+):
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("""
-        UPDATE produtos
-        SET descricao=?, unidade=?, fornecedor=?, estoque_minimo=?,
-            localizacao=?, observacao=?, ativo=?
-        WHERE id=?
-    """, (
-        descricao, unidade, fornecedor, estoque_minimo,
-        localizacao, observacao, ativo, produto_id
-    ))
+
+    if data_cadastro:
+        cur.execute("""
+            UPDATE produtos
+            SET data_cadastro=?, descricao=?, unidade=?, fornecedor=?, estoque_minimo=?,
+                localizacao=?, observacao=?, ativo=?
+            WHERE id=?
+        """, (
+            data_cadastro, descricao, unidade, fornecedor, estoque_minimo,
+            localizacao, observacao, ativo, produto_id
+        ))
+    else:
+        cur.execute("""
+            UPDATE produtos
+            SET descricao=?, unidade=?, fornecedor=?, estoque_minimo=?,
+                localizacao=?, observacao=?, ativo=?
+            WHERE id=?
+        """, (
+            descricao, unidade, fornecedor, estoque_minimo,
+            localizacao, observacao, ativo, produto_id
+        ))
+
     conn.commit()
     conn.close()
 
 
-# -------------------------
-# MOVIMENTAÇÕES
-# -------------------------
-def registrar_movimentacao_produto(produto_id, tipo, quantidade, colaborador_id, usuario_id, observacao=""):
+def registrar_movimentacao_produto(
+    produto_id,
+    tipo,
+    quantidade,
+    colaborador_id,
+    usuario_id,
+    observacao="",
+    data_movimentacao=None
+):
     conn = get_conn()
     cur = conn.cursor()
 
@@ -296,6 +447,8 @@ def registrar_movimentacao_produto(produto_id, tipo, quantidade, colaborador_id,
         conn.close()
         raise ValueError("Tipo inválido.")
 
+    data_final = data_movimentacao or datetime.now().strftime("%Y-%m-%d")
+
     cur.execute("""
         INSERT INTO movimentacoes_produto (
             produto_id, tipo, quantidade, colaborador_id, usuario_id, data_movimentacao, observacao
@@ -307,7 +460,7 @@ def registrar_movimentacao_produto(produto_id, tipo, quantidade, colaborador_id,
         quantidade,
         colaborador_id,
         usuario_id,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        data_final,
         observacao
     ))
 
@@ -331,6 +484,7 @@ def listar_movimentacoes_produto():
             p.descricao,
             p.unidade,
             p.fornecedor,
+            p.qtde_inicial,
             p.qtde_atual,
             p.estoque_minimo,
             m.tipo,
