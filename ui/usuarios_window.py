@@ -1,7 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from db_estoque import listar_usuarios, inserir_usuario, atualizar_usuario
+from db_estoque import (
+    listar_usuarios,
+    inserir_usuario,
+    atualizar_usuario,
+    excluir_usuario
+)
 from ui.utils_ui import configurar_janela
 
 
@@ -50,6 +55,7 @@ class UsuariosWindow(tk.Toplevel):
 
         ttk.Button(form, text="Novo", command=self.novo).grid(row=3, column=0, padx=5, pady=10)
         ttk.Button(form, text="Salvar", command=self.salvar).grid(row=3, column=1, padx=5, pady=10)
+        ttk.Button(form, text="Excluir", command=self.excluir).grid(row=3, column=2, padx=5, pady=10)
 
         self.tree = ttk.Treeview(self, columns=("id", "nome", "usuario", "nivel", "ativo"), show="headings")
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
@@ -108,6 +114,26 @@ class UsuariosWindow(tk.Toplevel):
             self.carregar()
             self.novo()
             messagebox.showinfo("Sucesso", "Usuário salvo.")
+        except Exception as e:
+            messagebox.showerror("Erro", str(e))
+
+    def excluir(self):
+        if self.usuario_id is None:
+            messagebox.showwarning("Atenção", "Selecione um usuário para excluir.")
+            return
+
+        confirmar = messagebox.askyesno(
+            "Confirmar exclusão",
+            "Deseja excluir este usuário definitivamente?"
+        )
+        if not confirmar:
+            return
+
+        try:
+            excluir_usuario(self.usuario_id)
+            self.carregar()
+            self.novo()
+            messagebox.showinfo("Sucesso", "Usuário excluído.")
         except Exception as e:
             messagebox.showerror("Erro", str(e))
 

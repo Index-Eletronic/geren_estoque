@@ -8,7 +8,7 @@ from db_estoque import (
     registrar_movimentacao_produto,
     listar_colaboradores_ativos
 )
-from ui.utils_ui import configurar_janela, abrir_filha
+from ui.utils_ui import configurar_janela
 from ui.cadastro_produtos_window import CadastroProdutosWindow
 
 
@@ -36,7 +36,12 @@ class ProdutosWindow(tk.Toplevel):
         self.data_mov.insert(0, datetime.now().strftime("%d/%m/%Y"))
 
         ttk.Label(mov, text="Tipo").grid(row=0, column=2, padx=5, pady=5)
-        self.tipo = ttk.Combobox(mov, values=["ENTRADA", "SAIDA", "AJUSTE"], state="disabled", width=12)
+        self.tipo = ttk.Combobox(
+            mov,
+            values=["ENTRADA", "SAIDA", "AJUSTE"],
+            state="disabled",
+            width=12
+        )
         self.tipo.grid(row=0, column=3, padx=5, pady=5)
 
         ttk.Label(mov, text="Quantidade").grid(row=0, column=4, padx=5, pady=5)
@@ -51,10 +56,19 @@ class ProdutosWindow(tk.Toplevel):
         self.mov_obs = ttk.Entry(mov, width=45, state="disabled")
         self.mov_obs.grid(row=1, column=3, columnspan=2, padx=5, pady=5, sticky="we")
 
-        self.btn_mov = ttk.Button(mov, text="Registrar Movimentação", command=self.movimentar, state="disabled")
+        self.btn_mov = ttk.Button(
+            mov,
+            text="Registrar Movimentação",
+            command=self.movimentar,
+            state="disabled"
+        )
         self.btn_mov.grid(row=1, column=5, padx=5, pady=5)
 
-        ttk.Button(mov, text="Cadastro de Produtos", command=self.abrir_cadastro_produtos).grid(row=1, column=6, padx=5, pady=5)
+        ttk.Button(
+            mov,
+            text="Cadastro de Produtos",
+            command=self.abrir_cadastro_produtos
+        ).grid(row=1, column=6, padx=5, pady=5)
 
         busca = ttk.LabelFrame(self, text="Pesquisar Produto")
         busca.pack(fill="x", padx=10, pady=5)
@@ -103,7 +117,6 @@ class ProdutosWindow(tk.Toplevel):
             self.tree.column(c, width=w, anchor=anchor)
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
-        self.bind("<FocusIn>", self._ao_receber_foco)
 
         self.carregar_colaboradores()
         self.pesquisar()
@@ -122,12 +135,10 @@ class ProdutosWindow(tk.Toplevel):
         except Exception:
             return data_str
 
-    def _ao_receber_foco(self, event=None):
-        self.carregar_colaboradores()
-        self.pesquisar()
-
     def abrir_cadastro_produtos(self):
-        abrir_filha(self, CadastroProdutosWindow)
+        janela = CadastroProdutosWindow(self)
+        self.wait_window(janela)
+        self.pesquisar()
 
     def carregar_colaboradores(self):
         try:
@@ -135,9 +146,9 @@ class ProdutosWindow(tk.Toplevel):
             self.colab_map = {f'{c["id"]} - {c["nome"]}': c["id"] for c in colaboradores}
             self.colaborador["values"] = list(self.colab_map.keys())
 
-            if colaboradores:
+            if colaboradores and not self.colaborador.get():
                 self.colaborador.current(0)
-            else:
+            elif not colaboradores:
                 self.colaborador.set("")
         except Exception as e:
             self.colab_map = {}
@@ -168,21 +179,27 @@ class ProdutosWindow(tk.Toplevel):
         self.desabilitar_movimentacao()
         self.lbl_info.config(text="Nenhum produto selecionado.")
 
-    def habilitar_movimentacao(self):
+    def habilitar_movimentacao_total(self):
         self.tipo.config(state="readonly")
-        self.tipo.set("ENTRADA")
+        if not self.tipo.get():
+            self.tipo.set("ENTRADA")
+
+        self.colaborador.config(state="readonly")
+        if self.colaborador["values"] and not self.colaborador.get():
+            self.colaborador.current(0)
+
         self.quantidade.config(state="normal")
         self.mov_obs.config(state="normal")
-        self.colaborador.config(state="readonly")
         self.btn_mov.config(state="normal")
 
     def desabilitar_movimentacao(self):
         self.produto_id = None
         self.tipo.config(state="disabled")
+        self.colaborador.config(state="disabled")
         self.quantidade.config(state="disabled")
         self.mov_obs.config(state="disabled")
-        self.colaborador.config(state="disabled")
         self.btn_mov.config(state="disabled")
+        self.tipo.set("")
         self.quantidade.delete(0, "end")
         self.mov_obs.delete(0, "end")
 
@@ -197,8 +214,12 @@ class ProdutosWindow(tk.Toplevel):
         obs = self.mov_obs.get().strip()
         data_mov = self._data_para_bd(self.data_mov.get())
 
-        if not tipo or not qtd:
-            messagebox.showwarning("Atenção", "Informe tipo e quantidade.")
+        if not tipo:
+            messagebox.showwarning("Atenção", "Selecione o tipo.")
+            return
+
+        if not qtd:
+            messagebox.showwarning("Atenção", "Informe a quantidade.")
             return
 
         colaborador_id = self.colab_map.get(colaborador_str)
@@ -240,7 +261,7 @@ class ProdutosWindow(tk.Toplevel):
                 f'Saldo Atual: {row["qtde_atual"]}'
             )
         )
-        self.habilitar_movimentacao()
+        self.habilitar_movimentacao_total()
 
     def on_select(self, event):
         selecionado = self.tree.selection()

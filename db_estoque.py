@@ -202,6 +202,30 @@ def atualizar_usuario(usuario_id, nome, usuario, senha, nivel, ativo):
     conn.close()
 
 
+def excluir_usuario(usuario_id):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT COUNT(*) AS total
+        FROM movimentacoes_produto
+        WHERE usuario_id = ?
+    """, (usuario_id,))
+    total = cur.fetchone()["total"]
+
+    if total and int(total) > 0:
+        conn.close()
+        raise ValueError("Este usuário já possui movimentações registradas e não pode ser excluído.")
+
+    cur.execute("""
+        DELETE FROM usuarios
+        WHERE id = ?
+    """, (usuario_id,))
+
+    conn.commit()
+    conn.close()
+
+
 def listar_colaboradores():
     conn = get_conn()
     cur = conn.cursor()
@@ -215,20 +239,6 @@ def listar_colaboradores_ativos():
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("SELECT * FROM colaboradores WHERE ativo = 1 ORDER BY nome")
-    rows = cur.fetchall()
-    conn.close()
-    return rows
-
-
-def listar_usuarios_colaborador_ativos():
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT *
-        FROM usuarios
-        WHERE nivel = 'colaborador' AND ativo = 1
-        ORDER BY nome
-    """)
     rows = cur.fetchall()
     conn.close()
     return rows
@@ -253,6 +263,25 @@ def atualizar_colaborador(colaborador_id, nome, funcao, ativo):
         SET nome=?, funcao=?, ativo=?
         WHERE id=?
     """, (nome, funcao, ativo, colaborador_id))
+    conn.commit()
+    conn.close()
+
+
+def excluir_colaborador(colaborador_id):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE movimentacoes_produto
+        SET colaborador_id = NULL
+        WHERE colaborador_id = ?
+    """, (colaborador_id,))
+
+    cur.execute("""
+        DELETE FROM colaboradores
+        WHERE id = ?
+    """, (colaborador_id,))
+
     conn.commit()
     conn.close()
 

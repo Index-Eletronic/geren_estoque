@@ -1,7 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from db_estoque import listar_colaboradores, inserir_colaborador, atualizar_colaborador
+from db_estoque import (
+    listar_colaboradores,
+    inserir_colaborador,
+    atualizar_colaborador,
+    excluir_colaborador
+)
 from ui.utils_ui import configurar_janela
 
 
@@ -9,45 +14,48 @@ class ColaboradoresWindow(tk.Toplevel):
     def __init__(self, master):
         super().__init__(master)
         self.master = master
+        self.colaborador_id = None
+
         configurar_janela(
             self,
-            largura=700,
+            largura=560,
             altura=420,
             titulo="Colaboradores"
         )
-
-        self.colaborador_id = None
 
         form = ttk.LabelFrame(self, text="Cadastro")
         form.pack(fill="x", padx=10, pady=10)
 
         ttk.Label(form, text="Nome").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.nome = ttk.Entry(form, width=30)
+        self.nome = ttk.Entry(form, width=28)
         self.nome.grid(row=0, column=1, padx=5, pady=5)
 
         ttk.Label(form, text="Função").grid(row=0, column=2, padx=5, pady=5, sticky="w")
-        self.funcao = ttk.Entry(form, width=25)
+        self.funcao = ttk.Entry(form, width=20)
         self.funcao.grid(row=0, column=3, padx=5, pady=5)
 
         ttk.Label(form, text="Ativo").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         self.ativo = ttk.Combobox(form, values=["1", "0"], state="readonly", width=10)
-        self.ativo.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+        self.ativo.grid(row=1, column=1, padx=5, pady=5)
         self.ativo.set("1")
 
         ttk.Button(form, text="Novo", command=self.novo).grid(row=2, column=0, padx=5, pady=10)
         ttk.Button(form, text="Salvar", command=self.salvar).grid(row=2, column=1, padx=5, pady=10)
+        ttk.Button(form, text="Excluir", command=self.excluir).grid(row=2, column=2, padx=5, pady=10)
 
         self.tree = ttk.Treeview(self, columns=("id", "nome", "funcao", "ativo"), show="headings")
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-        for col, txt, w in [
-            ("id", "ID", 60),
-            ("nome", "Nome", 260),
-            ("funcao", "Função", 180),
-            ("ativo", "Ativo", 80)
-        ]:
-            self.tree.heading(col, text=txt)
-            self.tree.column(col, width=w)
+        cols = [
+            ("id", "ID", 50, "center"),
+            ("nome", "Nome", 220, "w"),
+            ("funcao", "Função", 180, "w"),
+            ("ativo", "Ativo", 60, "center"),
+        ]
+
+        for c, t, w, anchor in cols:
+            self.tree.heading(c, text=t, anchor=anchor)
+            self.tree.column(c, width=w, anchor=anchor)
 
         self.tree.bind("<<TreeviewSelect>>", self.on_select)
         self.carregar()
@@ -85,6 +93,26 @@ class ColaboradoresWindow(tk.Toplevel):
             self.carregar()
             self.novo()
             messagebox.showinfo("Sucesso", "Colaborador salvo.")
+        except Exception as e:
+            messagebox.showerror("Erro", str(e))
+
+    def excluir(self):
+        if self.colaborador_id is None:
+            messagebox.showwarning("Atenção", "Selecione um colaborador para excluir.")
+            return
+
+        confirmar = messagebox.askyesno(
+            "Confirmar exclusão",
+            "Deseja excluir este colaborador definitivamente?"
+        )
+        if not confirmar:
+            return
+
+        try:
+            excluir_colaborador(self.colaborador_id)
+            self.carregar()
+            self.novo()
+            messagebox.showinfo("Sucesso", "Colaborador excluído.")
         except Exception as e:
             messagebox.showerror("Erro", str(e))
 
